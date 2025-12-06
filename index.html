@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ダイス・スロットメーカー</title>
+    <style>
+        :root {
+            --primary-color: #6a1b9a;
+            --accent-color: #ffca28;
+            --bg-color: #222;
+            --text-color: #eee;
+            --cell-bg: #444;
+            --cell-border: #666;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 202, 40, 0.5);
+        }
+
+        /* モード切替タブ */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: #333;
+            border-radius: 8px;
+            padding: 5px;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: #fff;
+        }
+
+        /* グリッド表示エリア */
+        .slot-container {
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+            border: 2px solid var(--primary-color);
+        }
+
+        .grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .grid-3x3 {
+            grid-template-columns: repeat(3, 80px);
+            grid-template-rows: repeat(3, 80px);
+        }
+
+        .grid-5x5 {
+            grid-template-columns: repeat(5, 50px);
+            grid-template-rows: repeat(5, 50px);
+        }
+
+        .cell {
+            background-color: var(--cell-bg);
+            border: 2px solid var(--cell-border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            font-weight: bold;
+            color: #fff;
+            position: relative;
+            user-select: none;
+        }
+
+        .grid-5x5 .cell {
+            font-size: 1.5em; /* 5x5は少し文字を小さく */
+        }
+
+        /* アニメーション中のスタイル */
+        .rolling {
+            color: #aaa;
+            animation: shake 0.1s infinite;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(1px, 1px); }
+            50% { transform: translate(-1px, -1px); }
+            75% { transform: translate(1px, -1px); }
+            100% { transform: translate(-1px, 1px); }
+        }
+
+        /* アクションボタン */
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .btn-spin {
+            background-color: var(--accent-color);
+            color: #333;
+        }
+
+        .btn-copy {
+            background-color: #2980b9;
+            color: white;
+        }
+
+        .message {
+            margin-top: 15px;
+            height: 20px;
+            color: #4cd137;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Dice Slot Generator</h1>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="setMode(3)">3 × 3 Mode</button>
+        <button class="tab-btn" onclick="setMode(5)">5 × 5 Mode</button>
+    </div>
+
+    <div class="slot-container">
+        <div id="grid-target" class="grid grid-3x3"></div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-spin" onclick="spinDice()">🎰 SPIN!</button>
+        <button class="btn btn-copy" onclick="copyResult()">📋 Copy Text</button>
+    </div>
+
+    <div class="message" id="msg-area"></div>
+
+    <script>
+        let currentSize = 3;
+        let isRolling = false;
+
+        // 初期化
+        window.onload = () => {
+            initGrid(3);
+        };
+
+        function setMode(size) {
+            if (isRolling) return;
+            currentSize = size;
+            
+            // タブの見た目変更
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            initGrid(size);
+        }
+
+        function initGrid(size) {
+            const container = document.getElementById('grid-target');
+            container.innerHTML = '';
+            
+            // クラスの切り替え
+            container.className = 'grid'; // reset
+            container.classList.add(size === 3 ? 'grid-3x3' : 'grid-5x5');
+
+            const totalCells = size * size;
+            for (let i = 0; i < totalCells; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.textContent = '?';
+                cell.id = `cell-${i}`;
+                container.appendChild(cell);
+            }
+            document.getElementById('msg-area').textContent = '';
+        }
+
+        function spinDice() {
+            if (isRolling) return;
+            isRolling = true;
+            document.getElementById('msg-area').textContent = '';
+
+            const totalCells = currentSize * currentSize;
+            const cells = document.querySelectorAll('.cell');
+
+            // 演出用ループ
+            let ticks = 0;
+            const maxTicks = 15; // アニメーションの長さ
+            
+            const interval = setInterval(() => {
+                cells.forEach(cell => {
+                    cell.classList.add('rolling');
+                    // 1d8のランダム表示
+                    cell.textContent = Math.floor(Math.random() * 8) + 1;
+                });
+                ticks++;
+
+                if (ticks >= maxTicks) {
+                    clearInterval(interval);
+                    finalizeResult(cells);
+                }
+            }, 80); // 0.08秒ごとに数字が変わる
+        }
+
+        function finalizeResult(cells) {
+            cells.forEach(cell => {
+                cell.classList.remove('rolling');
+                // 最終確定 (念のためもう一度振る)
+                const val = Math.floor(Math.random() * 8) + 1;
+                cell.textContent = val;
+                
+                // 色付け（例: 8なら赤、1なら青など、好みで追加可能）
+                cell.style.color = '#fff';
+                if(val === 8) cell.style.color = '#ffca28'; // Critical color
+            });
+            isRolling = false;
+        }
+
+        function copyResult() {
+            if (isRolling) return;
+            
+            const cells = document.querySelectorAll('.cell');
+            // まだ回していない場合
+            if (cells[0].textContent === '?') {
+                document.getElementById('msg-area').textContent = '先にスロットを回してください';
+                return;
+            }
+
+            let text = `【${currentSize}x${currentSize} スロット結果】\n`;
+            
+            for (let i = 0; i < currentSize; i++) {
+                let row = "";
+                for (let j = 0; j < currentSize; j++) {
+                    const index = i * currentSize + j;
+                    const val = cells[index].textContent;
+                    // 全角括弧など好みの形式に変更可
+                    row += `[${val}]`; 
+                }
+                text += row + "\n";
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                document.getElementById('msg-area').textContent = 'クリップボードにコピーしました！';
+            }).catch(err => {
+                console.error('Copy failed', err);
+            });
+        }
+    </script>
+</body>
+</html>
