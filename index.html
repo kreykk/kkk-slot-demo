@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ダイス・スロットメーカー V2</title>
+    <title>ダイス・スロットメーカー V3</title>
     <meta name="robots" content="noindex">
 
     <style>
@@ -35,7 +35,6 @@
             text-shadow: 0 0 10px rgba(255, 202, 40, 0.5);
         }
 
-        /* モード切替タブ */
         .tabs {
             display: flex;
             margin-bottom: 20px;
@@ -59,7 +58,6 @@
             color: #fff;
         }
 
-        /* スロット本体エリア */
         .slot-wrapper {
             background: #333;
             padding: 20px;
@@ -73,13 +71,11 @@
             gap: 10px;
         }
 
-        /* グリッド共通設定 */
         .grid-layout {
             display: grid;
             gap: 10px;
         }
 
-        /* 3x3, 5x5 サイズ定義 */
         .size-3 {
             grid-template-columns: repeat(3, 80px);
         }
@@ -90,7 +86,6 @@
         }
         .size-5 .cell { height: 50px; font-size: 1.5em; }
 
-        /* セルの見た目 */
         .cell {
             background-color: var(--cell-bg);
             border: 2px solid var(--cell-border);
@@ -103,7 +98,6 @@
             user-select: none;
         }
 
-        /* アニメーション */
         .rolling {
             color: #aaa;
             animation: blur 0.1s infinite;
@@ -114,7 +108,6 @@
             100% { filter: blur(0px); }
         }
 
-        /* STOPボタン列のコンテナ */
         #stop-buttons-container {
             margin-top: 5px;
         }
@@ -127,7 +120,7 @@
             font-weight: bold;
             cursor: pointer;
             height: 40px;
-            width: 100%; /* グリッド幅いっぱいに */
+            width: 100%;
             transition: opacity 0.2s;
         }
         .col-stop-btn:disabled {
@@ -140,7 +133,6 @@
             opacity: 0.8;
         }
 
-        /* 操作パネル */
         .controls {
             display: flex;
             gap: 15px;
@@ -194,7 +186,7 @@
 </head>
 <body>
 
-    <h1>Dice Slot V2</h1>
+    <h1>Dice Slot V3</h1>
 
     <div class="tabs">
         <button class="tab-btn active" onclick="changeMode(3)">3 × 3 Mode</button>
@@ -203,7 +195,6 @@
 
     <div class="slot-wrapper">
         <div id="grid-target" class="grid-layout size-3"></div>
-        
         <div id="stop-buttons-container" class="grid-layout size-3"></div>
     </div>
 
@@ -219,9 +210,8 @@
         let currentSize = 3;
         let isRolling = false;
         let intervalId = null;
-        let columnStoppedStatus = []; // 各列が止まっているかどうかのフラグ
+        let columnStoppedStatus = [];
 
-        // 初期化
         window.onload = () => {
             initGrid(3);
         };
@@ -230,11 +220,9 @@
             if (isRolling) return;
             currentSize = size;
             
-            // タブのアクティブ切替
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
 
-            // クラスの入替 (gridの列数定義を変えるため)
             const gridTarget = document.getElementById('grid-target');
             const stopContainer = document.getElementById('stop-buttons-container');
             
@@ -251,7 +239,6 @@
             gridTarget.innerHTML = '';
             stopContainer.innerHTML = '';
             
-            // セルの生成
             const totalCells = size * size;
             for (let i = 0; i < totalCells; i++) {
                 const cell = document.createElement('div');
@@ -261,33 +248,29 @@
                 gridTarget.appendChild(cell);
             }
 
-            // STOPボタンの生成（列数分だけ作る）
             for (let col = 0; col < size; col++) {
                 const btn = document.createElement('button');
                 btn.className = 'col-stop-btn';
                 btn.textContent = 'STOP';
                 btn.id = `stop-btn-${col}`;
                 btn.onclick = () => stopColumn(col);
-                btn.disabled = true; // 最初は無効
+                btn.disabled = true;
                 stopContainer.appendChild(btn);
             }
-
+            
+            // モード切替時に初期状態としてStatus配列を埋めておく（コピー対策）
+            columnStoppedStatus = new Array(size).fill(false);
             document.getElementById('msg-area').textContent = '';
         }
 
-        // ------------------------------------------
-        // モードA: 手動STOPモード
-        // ------------------------------------------
         function startManualSpin() {
             if (isRolling) return;
             setupGameStart();
 
-            // 全てのSTOPボタンを有効化
             for (let col = 0; col < currentSize; col++) {
                 document.getElementById(`stop-btn-${col}`).disabled = false;
             }
 
-            // 回転ループ開始 (停止ボタンが押されるまで回り続ける)
             intervalId = setInterval(() => {
                 updateRollingCells();
             }, 80);
@@ -296,67 +279,47 @@
         function stopColumn(colIndex) {
             if (!isRolling || columnStoppedStatus[colIndex]) return;
 
-            // その列を停止済みにする
             columnStoppedStatus[colIndex] = true;
             document.getElementById(`stop-btn-${colIndex}`).disabled = true;
 
-            // その列のセルを確定演出（色変えなど）
             for (let row = 0; row < currentSize; row++) {
                 const cellIndex = row * currentSize + colIndex;
                 const cell = document.getElementById(`cell-${cellIndex}`);
                 cell.classList.remove('rolling');
                 
-                // 確定値をセット（念のため）
                 const val = Math.floor(Math.random() * 8) + 1;
                 cell.textContent = val;
                 
-                // 色付け
                 cell.style.color = (val === 8) ? '#ffca28' : '#fff';
             }
 
-            // 全列止まったか確認
             if (columnStoppedStatus.every(status => status === true)) {
                 finishGame();
             }
         }
 
-        // ------------------------------------------
-        // モードB: 一括抽選モード (旧仕様)
-        // ------------------------------------------
         function startAutoSpin() {
             if (isRolling) return;
             setupGameStart();
-
-            // 自動モードなのでSTOPボタンは無効のまま
             
-            // 回転開始
             intervalId = setInterval(() => {
                 updateRollingCells();
             }, 80);
 
-            // 一定時間後に全停止
             setTimeout(() => {
-                // 全列を順番に止める処理を呼ぶ、あるいは一括で止める
                 columnStoppedStatus.fill(true);
                 finishGame();
-            }, 1200); // 1.2秒後に停止
+            }, 1200);
         }
 
-
-        // ------------------------------------------
-        // 共通ロジック
-        // ------------------------------------------
-        
         function setupGameStart() {
             isRolling = true;
             document.getElementById('msg-area').textContent = '';
             document.getElementById('btn-manual').disabled = true;
             document.getElementById('btn-auto').disabled = true;
 
-            // 列ごとの停止状態をリセット
             columnStoppedStatus = new Array(currentSize).fill(false);
 
-            // 全セルを回転状態にする
             const cells = document.querySelectorAll('.cell');
             cells.forEach(cell => {
                 cell.classList.add('rolling');
@@ -364,15 +327,12 @@
             });
         }
 
-        // 回転中の表示更新（まだ止まっていない列だけ更新する）
         function updateRollingCells() {
             for (let col = 0; col < currentSize; col++) {
-                // この列がまだ止まっていなければ更新
                 if (!columnStoppedStatus[col]) {
                     for (let row = 0; row < currentSize; row++) {
                         const cellIndex = row * currentSize + col;
                         const cell = document.getElementById(`cell-${cellIndex}`);
-                        // 1d8 ランダム
                         cell.textContent = Math.floor(Math.random() * 8) + 1;
                     }
                 }
@@ -383,8 +343,6 @@
             clearInterval(intervalId);
             isRolling = false;
             
-            // 全セルからアニメーションクラスを削除 & 最終値確定
-            // (手動の場合は既に確定しているが、自動モードのために全走査)
             for (let i = 0; i < currentSize * currentSize; i++) {
                 const cell = document.getElementById(`cell-${i}`);
                 cell.classList.remove('rolling');
@@ -392,32 +350,34 @@
                 if (val === 8) cell.style.color = '#ffca28';
             }
 
-            // UI復帰
             document.getElementById('btn-manual').disabled = false;
             document.getElementById('btn-auto').disabled = false;
             
-            // STOPボタンを無効化
             const stopBtns = document.querySelectorAll('.col-stop-btn');
             stopBtns.forEach(btn => btn.disabled = true);
         }
 
         function copyResult() {
-            if (isRolling) {
-                document.getElementById('msg-area').textContent = '回転中はコピーできません';
-                return;
-            }
+            // ★修正点: isRolling のチェックを外しました
+            // プレイ中であってもコピー処理を続行します
+
             const cells = document.querySelectorAll('.cell');
-            if (cells[0].textContent === '?') {
-                document.getElementById('msg-area').textContent = '先にスロットを回してください';
-                return;
-            }
 
             let text = `【${currentSize}x${currentSize} スロット結果】\n`;
+            
             for (let i = 0; i < currentSize; i++) {
                 let row = "";
                 for (let j = 0; j < currentSize; j++) {
-                    const index = i * currentSize + j;
-                    const val = cells[index].textContent;
+                    // ★修正点: プレイ中 かつ その列がまだ止まっていない場合
+                    // 画面上の数字ではなく '?' を出力する
+                    let val;
+                    if (isRolling && !columnStoppedStatus[j]) {
+                        val = '?';
+                    } else {
+                        const index = i * currentSize + j;
+                        val = cells[index].textContent;
+                    }
+
                     row += `[${val}]`; 
                 }
                 text += row + "\n";
@@ -425,6 +385,10 @@
 
             navigator.clipboard.writeText(text).then(() => {
                 document.getElementById('msg-area').textContent = 'クリップボードにコピーしました！';
+            }).catch(err => {
+                 // 万が一クリップボード権限がない場合などのエラーハンドリング
+                 console.error(err);
+                 document.getElementById('msg-area').textContent = 'コピーに失敗しました';
             });
         }
     </script>
